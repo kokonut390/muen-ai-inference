@@ -1,0 +1,16 @@
+# --- 忽略 Python 快取 ---
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- 忽略大型資料與暫存檔  ---
+*.csv
+*.pth
+saved_images/
+test_images_temp/
+content/
+
+# --- 忽略虛擬環境與設定 ---
+venv/
+.env
+.DS_Store
