@@ -57,7 +57,7 @@ docker run -p 5000:5000 muen-exam-img
 > 當看到 `Uvicorn running on http://0.0.0.0:5000` 即代表啟動成功。
 
 ### 步驟 4：API 功能測試 (單張圖片)
-請打開瀏覽器訪問：**http://localhost:5000/docs**，並依照以下規範進行測試。
+請打開瀏覽器訪問： http://localhost:5000/docs ，並依照以下規範進行測試。
 
 #### 📥 輸入格式說明 (Input Format)
 - **Endpoint**: `/predict`
