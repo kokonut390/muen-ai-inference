@@ -7,6 +7,7 @@
 本專案已完成以下進階要求：
 1.  ✅ **Batch Inference API**: 新增 `/predict_batch` 接口，支援同時上傳多張圖片進行批次推論。
 2.  ✅ **Docker Compose**: 使用 `docker-compose.yml` 定義服務，簡化部署流程。
+3.  ✅ **Unit Test**: 撰寫 `pytest` 單元測試腳本，確保 API 功能穩定性。
 
 ---
 
@@ -19,6 +20,7 @@
 └── muen-ai-service/      # 核心程式碼目錄
     ├── docker-compose.yml# Docker Compose 服務定義檔 (Bonus)
     ├── main.py           # FastAPI 服務主程式 (含 /predict_batch)
+    ├── test_main.py      # 單元測試腳本 (Unit Test)
     ├── batch_predict.py  # 批次預測腳本 (ETL 流程：CSV -> Images -> Inference -> CSV)
     ├── Dockerfile        # 容器化建置設定 (基於 python:3.9-slim)
     ├── requirements.txt  # Python 相依套件清單
@@ -90,37 +92,29 @@ docker-compose up --build
 
 ---
 
-## 📦 批次預測 (Batch Prediction)
+## 🧪 執行單元測試 (Unit Test)
 
-本專案提供自動化腳本，可一次性完成「圖片生成」、「API 推論」與「結果匯出」。
+本專案包含自動化測試腳本 (`test_main.py`)，驗證 API 的正確性。
+請在容器運作時，開啟新終端機執行：
 
-請保持 Docker 服務運作中，並開啟**另一個終端機視窗**執行以下指令：
-
-#### 1. 查詢容器 ID
-若使用 Docker Compose，容器名稱通常為 `muen-api-container`。若使用一般指令，請輸入以下指令查詢：
 ```bash
-docker ps
-# 複製 CONTAINER ID (例如: a1b2c3d4e5f6)
+# 在 Docker 容器內安裝測試套件並執行測試
+docker exec muen-api-container /bin/sh -c "pip install pytest httpx && pytest"
 ```
+> 若看到綠色的 `passed` 字樣，代表所有測試案例皆通過。
 
-#### 2. 執行預測腳本
-此指令會自動處理圖片並呼叫 API，輸出進度條：
+---
+
+## 📦 批次預測腳本 (Script)
+
+若需執行 CSV 轉檔與大量推論腳本，請保持 Docker 服務運作中，並開啟**另一個終端機視窗**執行：
+
 ```bash
-# 若使用 Docker Compose (推薦)
+# 1. 執行預測腳本 (容器名稱固定為 muen-api-container)
 docker exec muen-api-container python -u batch_predict.py
 
-# 若使用一般容器 ID
-docker exec <Container_ID> python -u batch_predict.py
-```
-
-#### 3. 取出結果 CSV
-預測完成後，將結果檔案下載回本機：
-```bash
-# 若使用 Docker Compose
+# 2. 取出結果 CSV
 docker cp muen-api-container:/app/result.csv .
-
-# 若使用一般容器 ID
-docker cp <Container_ID>:/app/result.csv .
 ```
 
 現在，您可以在專案目錄下找到 `result.csv` 檔案。
