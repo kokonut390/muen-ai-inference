@@ -6,73 +6,89 @@ from PIL import Image
 import io
 
 # --- Configuration ---
-API_URL = "http://localhost:5000/predict"    # API endpoint inside the container network or localhost
-CSV_PATH = "test.csv"                        # Source CSV file provided by the exam
-IMAGE_DIR = "test_images_temp"               # Temporary directory to store generated images
-OUTPUT_CSV = "result.csv"                    # Final output filename
+API_URL = "http://localhost:5000/predict"
+CSV_PATH = "test.csv"
+IMAGE_DIR = "test_images"  # Fixed folder name as per requirement
+OUTPUT_CSV = "result.csv"
 
-# 1. Create temporary directory for images
-# We need to simulate a folder input as per exam requirements
-if not os.path.exists(IMAGE_DIR):
-    os.makedirs(IMAGE_DIR)
-
-print(f"🚀 Starting batch prediction process...")
-
-try:
-    # 2. Load CSV Data
-    # Assuming test.csv has the same format as train.csv (pixel0...pixel783)
+def generate_images_from_csv():
+    """
+    Phase 1: ETL - Generate images from CSV if folder is empty.
+    """
     if not os.path.exists(CSV_PATH):
-        raise FileNotFoundError(f"{CSV_PATH} not found. Please ensure the file exists.")
-        
+        print(f"⚠️ No {CSV_PATH} found. Skipping generation.")
+        return
+
+    print(f"📂 Generatimg images from {CSV_PATH} to {IMAGE_DIR}...")
     df = pd.read_csv(CSV_PATH)
-    print(f"📄 Loaded {len(df)} records from {CSV_PATH}. Processing...")
     
-    # --- Optimization: Limit to first 50 records for demonstration ---
-    # Comment out the line below to process the full dataset
-    df = df.head(50)
+    # Optimization: Process only first 50 for demo (Uncomment below to run all)
+    df = df.head(50) 
     
-    results = []
-    
-    # 3. Iterate through each row to generate image and predict
+    if not os.path.exists(IMAGE_DIR):
+        os.makedirs(IMAGE_DIR)
+
     for idx, row in df.iterrows():
-        # Convert flattened pixels (1x784) back to 28x28 image
         pixels = row.values.astype(np.uint8).reshape(28, 28)
         img = Image.fromarray(pixels)
+        # Naming convention: {index}.png to maintain order
+        img.save(os.path.join(IMAGE_DIR, f"{idx}.png"))
+    
+    print(f"✅ Generated {len(df)} images.")
+
+def predict_from_folder():
+    """
+    Phase 2: Inference - Strictly iterate through the folder to predict.
+    """
+    if not os.path.exists(IMAGE_DIR):
+        print(f"❌ Error: Folder {IMAGE_DIR} does not exist.")
+        return
+
+    print(f"🚀 Starting batch inference from folder: {IMAGE_DIR}...")
+    
+    image_files = [f for f in os.listdir(IMAGE_DIR) if f.endswith(('.png', '.jpg', '.jpeg'))]
+    
+    # CRITICAL: Sort files numerically (0.png, 1.png, 2.png...) 
+    # Otherwise 10.png comes before 2.png in standard sorting
+    try:
+        image_files.sort(key=lambda x: int(os.path.splitext(x)[0]))
+    except ValueError:
+        # Fallback for non-numeric filenames
+        image_files.sort()
+
+    results = []
+    
+    for img_file in image_files:
+        img_path = os.path.join(IMAGE_DIR, img_file)
         
-        # Save as a temporary PNG file
-        img_filename = f"{idx}.png"
-        img_path = os.path.join(IMAGE_DIR, img_filename)
-        img.save(img_path)
-        
-        # 4. Send request to the Inference API
         try:
             with open(img_path, "rb") as f:
-                files = {"file": (img_filename, f, "image/png")}
+                files = {"file": (img_file, f, "image/png")}
                 response = requests.post(API_URL, files=files)
             
             if response.status_code == 200:
-                # Parse JSON response
                 pred = response.json()["prediction"]
-                
-                # Append result (ImageID, Label)
-                # Note: Adjust ImageID format as needed (e.g., idx+1)
-                results.append({"ImageID": idx + 1, "Label": pred})
-                
-                # Print progress
-                print(f"✅ Image {idx} -> Prediction: {pred}")
+                results.append({"ImageID": img_file, "Label": pred})
+                print(f"✅ {img_file} -> {pred}")
             else:
-                print(f"❌ Image {idx} Failed: {response.text}")
+                print(f"❌ {img_file} Failed: {response.text}")
                 
         except Exception as e:
-            print(f"⚠️ Connection Error on image {idx}: {e}")
+            print(f"⚠️ Error processing {img_file}: {e}")
 
-    # 5. Export results to CSV
+    # Export
     if results:
-        result_df = pd.DataFrame(results)
-        result_df.to_csv(OUTPUT_CSV, index=False)
-        print(f"\n🏆 Batch prediction complete! Results saved to: {OUTPUT_CSV}")
+        pd.DataFrame(results).to_csv(OUTPUT_CSV, index=False)
+        print(f"\n🏆 Done! Results saved to {OUTPUT_CSV}")
     else:
-        print("❌ No results were generated.")
+        print("❌ No predictions made.")
 
-except Exception as e:
-    print(f"Critical Error: {e}")
+if __name__ == "__main__":
+    # Logic: 
+    # 1. If folder doesn't exist or is empty, try to generate from CSV.
+    # 2. Then, run inference on the folder.
+    
+    if not os.path.exists(IMAGE_DIR) or not os.listdir(IMAGE_DIR):
+        generate_images_from_csv()
+    
+    predict_from_folder()
