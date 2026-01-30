@@ -3,6 +3,13 @@
 這是一個基於 **PyTorch** 與 **FastAPI** 的手寫數字辨識推論服務。
 本專案採用 Docker 容器化技術進行部署，並提供 RESTful API 與自動化批次推論腳本，完整展示從模型部署到批次資料處理的流程。
 
+## ⭐ 加分項目 (Bonus Features)
+本專案已完成以下進階要求：
+1.  ✅ **Batch Inference API**: 新增 `/predict_batch` 接口，支援同時上傳多張圖片進行批次推論。
+2.  ✅ **Docker Compose**: 使用 `docker-compose.yml` 定義服務，簡化部署流程。
+
+---
+
 ## 📂 專案結構 (Project Structure)
 
 ```text
@@ -10,7 +17,8 @@
 ├── README.md             # 專案說明文件
 ├── .gitignore            # Git 忽略設定
 └── muen-ai-service/      # 核心程式碼目錄
-    ├── main.py           # FastAPI 服務主程式 (包含 CNN+Transformer 模型架構)
+    ├── docker-compose.yml# Docker Compose 服務定義檔 (Bonus)
+    ├── main.py           # FastAPI 服務主程式 (含 /predict_batch)
     ├── batch_predict.py  # 批次預測腳本 (ETL 流程：CSV -> Images -> Inference -> CSV)
     ├── Dockerfile        # 容器化建置設定 (基於 python:3.9-slim)
     ├── requirements.txt  # Python 相依套件清單
@@ -44,39 +52,39 @@
 cd muen-ai-service
 ```
 
-### 步驟 2：建置 Docker 映像檔
-執行以下指令來打包應用程式 (第一次執行需下載 PyTorch，約需 1-3 分鐘)：
-
+### 步驟 2：使用 Docker Compose 啟動 (推薦)
+這是最簡單的啟動方式，會自動完成建置與執行：
 ```bash
-docker build -t muen-exam-img .
+docker-compose up --build
 ```
+> 當看到 `Application startup complete` 即代表啟動成功。
 
-### 步驟 3：啟動推論服務
-將容器的 5000 Port 對應到本機的 5000 Port：
+*(若不使用 Docker Compose，仍可使用傳統 `docker build` 與 `docker run` 指令)*
 
-```bash
-docker run -p 5000:5000 muen-exam-img
-```
-
-> 當看到 `Uvicorn running on http://0.0.0.0:5000` 即代表啟動成功。
-
-### 步驟 4：API 功能測試 (單張圖片)
+### 步驟 3：API 功能測試
 請打開瀏覽器訪問： http://localhost:5000/docs ，並依照以下規範進行測試。
 
-#### 📥 輸入格式說明 (Input Format)
-- **Endpoint**: `/predict`
+#### 1. 單張推論 `/predict`
 - **Method**: `POST`
-- **Content-Type**: `multipart/form-data`
-- **參數 (Body)**:
-  - `file`: 上傳圖片檔案 (格式支援 PNG, JPG, JPEG)
-
-#### ✅ 輸出範例 (Output Example)
-成功執行後，API 將回傳如下 JSON 格式：
-
+- **功能**: 上傳一張圖片，回傳單一數字預測結果。
+- **範例回傳**:
 ```json
 {
-  "filename": "img_0_label_6.png",
+  "filename": "img_0.png",
   "prediction": 6
+}
+```
+
+#### 2. 批次推論 `/predict_batch` (Bonus)
+- **Method**: `POST`
+- **功能**: 支援同時選取多張圖片上傳，回傳預測列表。
+- **範例回傳**:
+```json
+{
+  "results": [
+    {"filename": "1.png", "prediction": 2, "status": "success"},
+    {"filename": "2.png", "prediction": 7, "status": "success"}
+  ]
 }
 ```
 
@@ -89,26 +97,29 @@ docker run -p 5000:5000 muen-exam-img
 請保持 Docker 服務運作中，並開啟**另一個終端機視窗**執行以下指令：
 
 #### 1. 查詢容器 ID
-請複製 CONTAINER ID (例如: a1b2c3d4e5f6)
+若使用 Docker Compose，容器名稱通常為 `muen-api-container`。若使用一般指令，請輸入以下指令查詢：
 ```bash
 docker ps
+# 複製 CONTAINER ID (例如: a1b2c3d4e5f6)
 ```
 
-
-#### 2. 將腳本複製到容器內
-```bash
-docker cp batch_predict.py <Container_ID>:/app/
-```
-
-#### 3. 執行預測腳本
+#### 2. 執行預測腳本
 此指令會自動處理圖片並呼叫 API，輸出進度條：
 ```bash
+# 若使用 Docker Compose (推薦)
+docker exec muen-api-container python -u batch_predict.py
+
+# 若使用一般容器 ID
 docker exec <Container_ID> python -u batch_predict.py
 ```
 
-#### 4. 取出結果 CSV
+#### 3. 取出結果 CSV
 預測完成後，將結果檔案下載回本機：
 ```bash
+# 若使用 Docker Compose
+docker cp muen-api-container:/app/result.csv .
+
+# 若使用一般容器 ID
 docker cp <Container_ID>:/app/result.csv .
 ```
 
